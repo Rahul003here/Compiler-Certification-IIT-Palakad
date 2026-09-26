@@ -28,14 +28,6 @@ using namespace llvm;
 
 namespace {
 
-void reportRewrite(const char *Tag, Instruction &Old, const Value &New) {
-  errs() << "[" << Tag << "] " << Old << "  ==>  " << New << "\n";
-}
-
-void reportDelete(const char *Tag, Instruction &I) {
-  errs() << "[" << Tag << "] deleting " << I << "\n";
-}
-
 //===----------------------------------------------------------------------===//
 // 1. Constant propagation
 //===----------------------------------------------------------------------===//
@@ -52,7 +44,6 @@ bool rahul_constant_propagation(Function &F) {
       if (!Folded || Folded == cast<Value>(&I))
         continue;
 
-      reportRewrite("rahul_constant_propagation", I, *Folded);
       I.replaceAllUsesWith(Folded);
       I.eraseFromParent();
       Changed = true;
@@ -182,7 +173,6 @@ bool rahul_inst_combine(Function &F) {
         continue;
 
       if (Value *Simple = simplifyBinaryOp(BO)) {
-        reportRewrite("rahul_inst_combine", I, *Simple);
         BO->replaceAllUsesWith(Simple);
         BO->eraseFromParent();
         Changed = true;
@@ -190,7 +180,6 @@ bool rahul_inst_combine(Function &F) {
       }
 
       if (Instruction *Shift = buildPowerOfTwoShift(BO)) {
-        reportRewrite("rahul_inst_combine", I, *Shift);
         BO->replaceAllUsesWith(Shift);
         BO->eraseFromParent();
         Changed = true;
@@ -221,7 +210,6 @@ bool rahul_dead_code_elimination(Function &F) {
         if (auto *OpInst = dyn_cast<Instruction>(Op))
           Worklist.push_back(OpInst);
 
-      reportDelete("rahul_dead_code_elimination", *I);
       I->eraseFromParent();
       Changed = true;
     }
@@ -246,7 +234,6 @@ bool rahul_strength_reduction(Function &F) {
       if (!Shift)
         continue;
 
-      reportRewrite("rahul_strength_reduction", I, *Shift);
       BO->replaceAllUsesWith(Shift);
       BO->eraseFromParent();
       Changed = true;
@@ -305,7 +292,6 @@ bool rahul_cse(Function &F) {
         continue;
       }
 
-      reportRewrite("rahul_cse", I, *It->second);
       I.replaceAllUsesWith(It->second);
       I.eraseFromParent();
       Changed = true;
@@ -321,9 +307,6 @@ bool rahul_cse(Function &F) {
 // Driver
 //===----------------------------------------------------------------------===//
 PreservedAnalyses HelloWorldPass::run(Function &F, FunctionAnalysisManager &AM) {
-  errs() << "=== rahul's local optimizer on function '" << F.getName()
-         << "' ===\n";
-
   const unsigned MaxRounds = 8;
   bool ChangedOverall = false;
 
@@ -341,9 +324,6 @@ PreservedAnalyses HelloWorldPass::run(Function &F, FunctionAnalysisManager &AM) 
 
     ChangedOverall = true;
   }
-
-  errs() << "=== done, function was "
-         << (ChangedOverall ? "modified" : "left unchanged") << " ===\n\n";
 
   return ChangedOverall ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
