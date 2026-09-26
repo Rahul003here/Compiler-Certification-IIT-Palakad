@@ -15,7 +15,6 @@ Passes implemented in `HelloWorld.cpp`:
 | `rahul_strength_reduction` | `mul`/`sdiv`/`udiv` by a power of two becomes `shl`/`ashr`/`lshr` |
 | `rahul_cse` | Reuses an earlier identical computation inside a basic block |
 
----
 
 ## 1. Copy `HelloWorld.cpp` into the LLVM tree
 
@@ -51,8 +50,6 @@ You do not need to touch any of these. LLVM already has the wiring in place:
 
 That registry line that makes the command line find
 the C++ class `HelloWorldPass` is `-passes=helloworld`.
-
----
 
 ## 2. Set up the test-cases directory
 
@@ -91,8 +88,6 @@ $HOME/llvm-work/
 └── test-cases/
     └── *.c                                        <-- your test programs
 ```
-
----
 
 ## 3. Running a test case
 
@@ -139,9 +134,8 @@ Or just show the function body:
 cat t4.out.ll
 ```
 
----
 
-## 3. All test cases with expected results
+## 4. All test cases with expected results
 
 Run each block from `$HOME/llvm-work/test-cases` with `$B` already exported.
 
