@@ -71,10 +71,9 @@ Copy all the `.c` files from this project into it. You should end up with:
 test-cases/
 ├── t1_strength.c
 ├── t2_algebraic.c
-├── t3_copyprop.c
-├── t4_constfold.c
-├── t5_redundant.c
-└── t6_cse.c
+├── t3_constfold.c
+├── t4_redundant.c
+└── t5_cse.c
 ```
 
 Check:
@@ -153,6 +152,7 @@ Source: `t1_strength.c`
 ```bash
 $B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t1_strength.c -o t1.ll
 $B/opt -S -passes='mem2reg,helloworld' t1.ll -o t1.out.ll
+cat t1.out.ll
 ```
 
 Look for these lines in the log:
@@ -172,7 +172,7 @@ Source: `t2_algebraic.c`
 ```bash
 $B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t2_algebraic.c -o t2.ll
 $B/opt -S -passes='mem2reg,helloworld' t2.ll -o t2.out.ll
-sed -n '/^define/,/^}/p' t2.out.ll
+cat t2.out.ll
 ```
 
 Expected final IR:
@@ -186,27 +186,14 @@ define dso_local i32 @compute(i32 noundef %0, i32 noundef %1) {
 The chain is `a/a` → `1`, `1*1` → `1`, `b-b` → `0`, `1+0` → `1`, `1/1` → `1`,
 `1-1` → `0`, then `0+23` → `23`. The whole function collapses to a constant.
 
-### Test 3: Copy propagation
+### Test 3: Constant folding
 
-Source: `t3_copyprop.c`
+Source: `t3_constfold.c`
 
 ```bash
-$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t3_copyprop.c -o t3.ll
+$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t3_constfold.c -o t3.ll
 $B/opt -S -passes='mem2reg,helloworld' t3.ll -o t3.out.ll
-sed -n '/^define/,/^}/p' t3.out.ll
-```
-
-`mem2reg` does the actual copy propagation here by turning `c = d` into a
-direct SSA reference, and then this pass folds what is left.
-
-### Test 4: Constant folding
-
-Source: `t4_constfold.c`
-
-```bash
-$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t4_constfold.c -o t4.ll
-$B/opt -S -passes='mem2reg,helloworld' t4.ll -o t4.out.ll
-sed -n '/^define/,/^}/p' t4.out.ll
+cat t3.out.ll
 ```
 
 Expected final IR:
@@ -222,14 +209,14 @@ using integer division. Note the divide by 2 goes through `ashr` first, then
 gets folded, so you will see both a strength reduction line and a constant
 propagation line in the log.
 
-### Test 5: Redundant assignment elimination
+### Test 4: Redundant assignment elimination
 
-Source: `t5_redundant.c`
+Source: `t4_redundant.c`
 
 ```bash
-$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t5_redundant.c -o t5.ll
-$B/opt -S -passes='mem2reg,helloworld' t5.ll -o t5.out.ll
-sed -n '/^define/,/^}/p' t5.out.ll
+$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t4_redundant.c -o t4.ll
+$B/opt -S -passes='mem2reg,helloworld' t4.ll -o t4.out.ll
+cat t4.out.ll
 ```
 
 Expected final IR:
@@ -243,14 +230,14 @@ define dso_local i32 @main() {
 `c = a+b` is computed but `c` is never returned, so dead code elimination
 deletes it.
 
-### Test 6: Common subexpression elimination
+### Test 5: Common subexpression elimination
 
-Source: `t6_cse.c`
+Source: `t5_cse.c`
 
 ```bash
-$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t6_cse.c -o t6.ll
-$B/opt -S -passes='mem2reg,helloworld' t6.ll -o t6.out.ll
-sed -n '/^define/,/^}/p' t6.out.ll
+$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t5_cse.c -o t5.ll
+$B/opt -S -passes='mem2reg,helloworld' t5.ll -o t5.out.ll
+cat t5.out.ll
 ```
 
 Expected log lines:
