@@ -110,19 +110,19 @@ You must re-run that `export` line every time you open a new terminal.
 ### Step 1: C source to unoptimized LLVM IR
 
 ```bash
-$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t4_constfold.c -o t4.ll
+$B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t3_constfold.c -o t3.ll
 ```
 
 Look at the result:
 
 ```bash
-cat t4.ll
+cat t3.ll
 ```
 
 ### Step 2: Run the optimization passes
 
 ```bash
-$B/opt -S -passes='mem2reg,helloworld' t4.ll -o t4.out.ll
+$B/opt -S -passes='mem2reg,helloworld' t3.ll -o t3.out.ll
 ```
 
 What this means:
@@ -130,13 +130,13 @@ What this means:
 Compare before and after:
 
 ```bash
-diff t4.ll t4.out.ll
+diff t3.ll t3.out.ll
 ```
 
 Or just show the function body:
 
 ```bash
-sed -n '/^define/,/^}/p' t4.out.ll
+cat t4.out.ll
 ```
 
 ---
@@ -153,13 +153,6 @@ Source: `t1_strength.c`
 $B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t1_strength.c -o t1.ll
 $B/opt -S -passes='mem2reg,helloworld' t1.ll -o t1.out.ll
 cat t1.out.ll
-```
-
-Look for these lines in the log:
-
-```text
-[rahul_inst_combine]   %2 = mul nsw i32 2, ...  ==>  shl i32 ..., 1
-[rahul_inst_combine]   %3 = mul nsw i32 ..., 8  ==>  shl i32 ..., 3
 ```
 
 Multiplying by 2 becomes a left shift by 1. Multiplying by 8 becomes a left
@@ -205,9 +198,7 @@ define dso_local i32 @compute() {
 ```
 
 Trace it: `c = 4+2+3 = 9`, `result = 0+2+3 = 5`, `5*9 = 45`, and `45/2 = 22`
-using integer division. Note the divide by 2 goes through `ashr` first, then
-gets folded, so you will see both a strength reduction line and a constant
-propagation line in the log.
+using integer division.
 
 ### Test 4: Redundant assignment elimination
 
@@ -238,13 +229,6 @@ Source: `t5_cse.c`
 $B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t5_cse.c -o t5.ll
 $B/opt -S -passes='mem2reg,helloworld' t5.ll -o t5.out.ll
 cat t5.out.ll
-```
-
-Expected log lines:
-
-```text
-[rahul_cse] ... add nsw i32 %1, %0  ==>  add nsw i32 %0, %1
-[rahul_dead_code_elimination] deleting  ... mul nsw i32 %0, 7
 ```
 
 Expected final IR:
