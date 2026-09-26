@@ -17,49 +17,7 @@ Passes implemented in `HelloWorld.cpp`:
 
 ---
 
-## 1. Prerequisites
-
-You need these installed before starting:
-
-```bash
-sudo apt update
-sudo apt install -y git cmake ninja-build build-essential python3
-```
-
-Check the versions:
-
-```bash
-cmake --version     # 3.20 or newer
-ninja --version
-g++ --version
-```
-
-You also need roughly **60 GB of free disk space** and a machine with several
-cores. The build takes a while the first time.
-
----
-
-## 2. Get the LLVM source
-
-Pick a working directory. This README uses `$HOME/llvm-work`, but any path
-works as long as you stay consistent.
-
-```bash
-mkdir -p $HOME/llvm-work
-cd $HOME/llvm-work
-
-git clone --depth=1 https://github.com/llvm/llvm-project.git
-```
-
-After this you have:
-
-```text
-$HOME/llvm-work/llvm-project/
-```
-
----
-
-## 3. Copy `HelloWorld.cpp` into the LLVM tree
+## 1. Copy `HelloWorld.cpp` into the LLVM tree
 
 This is the most important step. The file must replace the stock LLVM file at
 exactly this path:
@@ -68,11 +26,7 @@ exactly this path:
 llvm-project/llvm/lib/Transforms/Utils/HelloWorld.cpp
 ```
 
-Assuming `HelloWorld.cpp` from this project is in your current directory:
-
 ```bash
-cd $HOME/llvm-work
-
 cp HelloWorld.cpp llvm-project/llvm/lib/Transforms/Utils/HelloWorld.cpp
 ```
 
@@ -89,78 +43,32 @@ to the wrong place.
 
 You do not need to touch any of these. LLVM already has the wiring in place:
 
-| File | Why it already works |
-| --- | --- |
-| `llvm/include/llvm/Transforms/Utils/HelloWorld.h` | Already declares `HelloWorldPass` |
-| `llvm/lib/Passes/PassRegistry.def` | Already contains `FUNCTION_PASS("helloworld", HelloWorldPass())` |
-| `llvm/lib/Transforms/Utils/CMakeLists.txt` | Already lists `HelloWorld.cpp` |
+| File |
+| --- |
+| `llvm/include/llvm/Transforms/Utils/HelloWorld.h` |
+| `llvm/lib/Passes/PassRegistry.def` |
+| `llvm/lib/Transforms/Utils/CMakeLists.txt` |
 
-That registry line is what makes `-passes=helloworld` on the command line find
-the C++ class `HelloWorldPass`.
-
----
-
-## 4. Configure and build
-
-Configure the build from inside `llvm-project`:
-
-```bash
-cd $HOME/llvm-work/llvm-project
-
-cmake -S llvm -B build -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_PROJECTS="clang;lld" \
-  -DLLVM_TARGETS_TO_BUILD="X86" \
-  -DLLVM_INCLUDE_TESTS=OFF \
-  -DLLVM_INCLUDE_BENCHMARKS=OFF
-```
-
-A common mistake: running the `cmake` command while already inside a directory
-named `build` creates a nested `build/build`. Run it from the `llvm-project`
-directory as shown above.
-
-Now build only the two targets needed:
-
-```bash
-cmake --build build --target LLVMTransformUtils opt clang -j"$(nproc)"
-```
-
-Or, equivalently, with ninja directly:
-
-```bash
-cd build
-ninja LLVMTransformUtils opt clang
-```
-
-The first build is slow. Every rebuild after editing `HelloWorld.cpp` takes
-under a minute, because only that one file recompiles.
-
-When it finishes, confirm the binaries exist:
-
-```bash
-ls $HOME/llvm-work/llvm-project/build/bin/opt
-ls $HOME/llvm-work/llvm-project/build/bin/clang
-```
-
-Nothing is installed system-wide. There is no `ninja install` step, no `sudo`,
-and no change to your `PATH`. Everything stays inside the build directory.
+That registry line that makes the command line find
+the C++ class `HelloWorldPass` is `-passes=helloworld`.
 
 ---
 
-## 5. Set up the test-cases directory
+## 2. Set up the test-cases directory
 
 Create the test directory **next to** `llvm-project`, not inside it. Keeping
-your files out of the LLVM tree avoids confusing `git status` later.
+your files out of the LLVM tree avoids confusion
 
 ```bash
-mkdir -p $HOME/llvm-work/test-cases
-cd $HOME/llvm-work/test-cases
+cd <path to llvm-project> && cd ..
+mkdir test-cases
+cd test-cases
 ```
 
 Copy all the `.c` files from this project into it. You should end up with:
 
 ```text
-$HOME/llvm-work/test-cases/
+test-cases/
 ├── t1_strength.c
 ├── t2_algebraic.c
 ├── t3_copyprop.c
@@ -181,22 +89,21 @@ Your final layout looks like this:
 $HOME/llvm-work/
 ├── llvm-project/
 │   ├── llvm/lib/Transforms/Utils/HelloWorld.cpp   <-- the pass you copied
-│   └── build/bin/{opt,clang}                      <-- the tools you built
 └── test-cases/
     └── *.c                                        <-- your test programs
 ```
 
 ---
 
-## 6. Running a test case
+## 3. Running a test case
 
 Every test is two commands. Set a shortcut variable first so the commands stay
 short:
 
 ```bash
-cd $HOME/llvm-work/test-cases
+cd <path to test-cases dir>
 
-export B=$HOME/llvm-work/llvm-project/build/bin
+export B=<path to llvm-project>/build/bin
 ```
 
 You must re-run that `export` line every time you open a new terminal.
@@ -206,15 +113,6 @@ You must re-run that `export` line every time you open a new terminal.
 ```bash
 $B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone t4_constfold.c -o t4.ll
 ```
-
-What the flags mean:
-
-| Flag | Meaning |
-| --- | --- |
-| `-O0` | No optimization, so your pass has something left to optimize |
-| `-S` | Emit text, not a binary object file |
-| `-emit-llvm` | Emit LLVM IR instead of assembly |
-| `-Xclang -disable-O0-optnone` | Removes the `optnone` attribute clang adds at `-O0`; without this, `opt` refuses to run any pass on the function |
 
 Look at the result:
 
@@ -230,18 +128,6 @@ $B/opt -S -passes='mem2reg,helloworld' t4.ll -o t4.out.ll
 
 What this means:
 
-| Part | Meaning |
-| --- | --- |
-| `-S` | Write readable `.ll` output instead of bitcode |
-| `mem2reg` | Promotes stack slots to SSA registers |
-| `helloworld` | Your pass, all five optimizations |
-| `-o t4.out.ll` | Where the optimized IR goes |
-
-**`mem2reg` is required.** At `-O0` every local variable is an `alloca` with
-`load`/`store` around it, so the arithmetic is hidden behind memory. Your
-passes work on SSA values, so without `mem2reg` running first they see nothing
-to optimize and the output is identical to the input.
-
 Compare before and after:
 
 ```bash
@@ -256,7 +142,7 @@ sed -n '/^define/,/^}/p' t4.out.ll
 
 ---
 
-## 7. All test cases with expected results
+## 3. All test cases with expected results
 
 Run each block from `$HOME/llvm-work/test-cases` with `$B` already exported.
 
@@ -386,83 +272,3 @@ define dso_local i32 @compute(i32 noundef %0, i32 noundef %1) {
 
 `b + a` is recognized as the same expression as `a + b` because addition is
 commutative, so it is computed once. The unused `a * 7` is then deleted.
-
----
-
-## 8. Run everything at once
-
-```bash
-cd $HOME/llvm-work/test-cases
-export B=$HOME/llvm-work/llvm-project/build/bin
-
-for f in t1_strength t2_algebraic t3_copyprop t4_constfold t5_redundant t6_cse; do
-  echo "##### $f #####"
-  $B/clang -O0 -S -emit-llvm -Xclang -disable-O0-optnone "$f.c" -o "$f.ll"
-  $B/opt -S -passes='mem2reg,helloworld' "$f.ll" -o "$f.out.ll"
-  echo "--- final IR ---"
-  sed -n '/^define/,/^}/p' "$f.out.ll"
-  echo
-done
-```
-
----
-
-## 9. After editing `HelloWorld.cpp`
-
-Whenever you change the pass, rebuild just the two affected targets:
-
-```bash
-cd $HOME/llvm-work/llvm-project/build
-ninja LLVMTransformUtils opt
-```
-
-Then re-run your test. You do not need to rebuild `clang`, since the `.ll`
-files you already generated are still valid inputs.
-
----
-
-## 10. Troubleshooting
-
-**`ninja: error: loading 'build.ninja': No such file or directory`**
-
-You are in the wrong directory, or CMake created a nested `build/build`. Check
-where `build.ninja` actually is:
-
-```bash
-find $HOME/llvm-work/llvm-project -maxdepth 3 -name build.ninja
-```
-
-Run `ninja` from the directory that contains it.
-
-**The pass prints nothing and the IR is unchanged**
-
-You almost certainly forgot `mem2reg`. Use
-`-passes='mem2reg,helloworld'`, not `-passes=helloworld` alone.
-
-**`opt` runs but skips the function entirely**
-
-You forgot `-Xclang -disable-O0-optnone` when generating the `.ll`. Check for
-the `optnone` attribute:
-
-```bash
-grep optnone t4.ll
-```
-
-If it appears, regenerate the `.ll` with the flag.
-
-**Values turn into `undef` or `0` unexpectedly**
-
-Some test cases read variables that were never initialized, for example `c` and
-`f` in `t1_strength.c`. LLVM types those as `undef` and folds operations on
-them to `0`. This is correct behavior for undefined values, not a bug. If you
-want to watch the shifts survive into the final IR, give those variables
-initial values first.
-
-**Want to see the IR without running your pass**
-
-```bash
-$B/opt -S -passes='mem2reg' t4.ll -o t4.mem2reg.ll
-cat t4.mem2reg.ll
-```
-
-This is the exact input your pass receives, which makes debugging much easier.
